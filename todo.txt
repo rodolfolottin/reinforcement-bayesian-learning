@@ -1,0 +1,23 @@
+## Implementação
+[x] Descobrir forma de recalcular o nodo
+[x] Discretizar o nodo AwareTime
+[] Gerar a rede que será realmente utilizada no meu TCC, ver até onde consigo ir
+[x] Criar o fluxo estabelecido pelo professor Elder, começar a fazer alguns testes sobre qual nodo da rede que teve maior diferença
+[x] Seria interessante que os passos fossem documentados para que eles sejam retratados no meu trabalho
+
+## Texto
+[x] Dar uma boa revisada na parte de redes bayesianas, preciso trabalhar mais nisso
+[x] Introduzir sobre incerteza acima de tudo
+[x] Falar sobre atenção situacional - Pegar trabalhos com o Thiago
+[x] Pegar fotos do experimento para que seja detalhado no TCC
+[x] Dar uma olhada no trabalho do Marcelo, sobre como ele introduz cada uma das sessoes 
+[x] Revisar a parte de aprendizagem por reforço
+[x] Revisar a parte de trabalhos relacionados, adicionar trabalhos que utilizam aprendizagem por reforço fora do contexto de jogos
+[x] Anotações feitas pelo Thiago, mas principalmente 
+[x] A sessao de aprendizagem da rede bayesiana talvez seja interessante ser uma subsesao por nao ser subsessao nenhuma
+[] Analise exploratoria dos dados, alguns graficos que sejam interessantes para depois possivelmente justificar o porque da tomada de certas decisões na criação da politica de controle
+[] No texto devo colocar o porquê de termos escolhido o aprendizado por reforço como uma segunda etapa
+[x] No Google Keep tem várias anotaçoes/considerações de coisas que tem que arrumar, não esquecer
+[x] Documentar no texto a evolução da rede, a escolha tambem de cada variavel, como foi gerada a rede e etc
+[x] Verificar folhas que estao no caderno porque lá também tem anotações
+[x] Analise a ser documentada: graficos sobre os dados, a parte de discretizacao, como eles se comportam, como foi descoberto o melhor nodo, algoritmo que rodou e teve os melhores resultados, metodos de score que foram escolhidos e utilizados, como funcionam, tambem devo falar sobre a biblioteca um pouco
