@@ -1,17 +1,19 @@
 import numpy as np
 import random
+import json
+import os
 from environment import AwareEnv, TEST
 from collections import defaultdict
 from pgmpy.inference import VariableElimination, BeliefPropagation
 
 
 class Agent(object):
-    def __init__(self, actions):
+    def __init__(self, actions, q_table):
         self.actions = actions
         self.learning_rate = 0.01
         self.discount_factor = 0.9
         self.epsilon = 0.9
-        self.q_table = defaultdict(lambda: [0.0] * len(actions))
+        self.q_table = defaultdict(lambda: [0.0] * len(actions), q_table)
 
     # get action for the state according to the q function table
     # agent pick action of epsilon-greedy policy
@@ -46,24 +48,42 @@ class Agent(object):
         return random.choice(max_index_list)
 
 if __name__ == "__main__":
+    q_table = {}
+
+    if os.stat('q_table.json').st_size > 0:
+        answer = input('Foi encontrado um arquivo q_table contendo uma tabela já preenchida. Gostaria de continuar utilizando-na? Y/N: ')
+
+        with open('q_table.json', 'r+') as qtable_json:
+            if answer.upper() == 'Y':
+                q_table = json.load(qtable_json)
+            else:
+                qtable_json.seek(0)
+                qtable_json.truncate()
+
     env = AwareEnv()
-    agent = Agent(actions=list(range(len(env.actions))))
+    agent = Agent(actions=list(range(len(env.actions))), q_table=q_table)
 
-    for _ in range(50):
-        state = env.reset()
+    try:
+        for _ in range(10):
+            state = env.reset()
 
-        for episode in env.episodes.iterrows():
-            env.render()
+            for episode in env.episodes.iterrows():
+                env.render()
 
-            index, episode = episode
+                index, episode = episode
 
-            adjustment = agent.get_action(str(state))
+                adjustment = agent.get_action(str(state))
 
-            next_state, reward = env.step(env.actions[adjustment], episode)
-            agent.learn(str(state), adjustment, reward, str(next_state))
+                next_state, reward = env.step(env.actions[adjustment], episode)
+                agent.learn(str(state), adjustment, reward, str(next_state))
 
-            state = str(next_state)
-            print(agent.q_table)
+                state = str(next_state)
+    finally:
+        print('\n ######## Rede Bayesiana Final ########')
 
-    print(state)
+        for node in env.model.get_cpds():
+            print(node)
+
+        with open('q_table.json', 'w') as qtable_json:
+            json.dump(agent.q_table, qtable_json, indent=4)
 

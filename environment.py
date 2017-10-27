@@ -1,30 +1,36 @@
 import networkx
 import numpy as np
-from dataset import TRAIN, TEST
+from dataset_analysis import TRAIN, TEST
 from pgmpy.models import BayesianModel
 from pgmpy.inference import BeliefPropagation
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
+from pgmpy.factors.discrete import DiscreteFactor, TabularCPD
 from random import random
 
 
 replacer = {
-    'AppDistraction': {
-        'No': 0,
-        'Yes': 1
+    'DistracaoApp': {
+        'Nao': 0,
+        'Sim': 1
     },
-    'CarDirection': {
-        'Back': 0,
-        'Front': 1,
-        'Left': 2,
-        'Right': 3
+    'DirecaoCarro': {
+        'Tras': 3,
+        'Direita': 0,
+        'Esquerda': 1,
+        'Frente': 2
     },
-    'Aware': {
-        'Aware': 0,
-        'Unaware': 1
+    'Consciente': {
+        'Consciente': 0,
+        'Inconsciente': 1
     },
-    'CarSound': {
-        'Off': 0,
-        'On': 1
+    'SomCarro': {
+        'Nao': 0,
+        'Sim': 1
+    },
+    'Percepcao': {
+        'Presente': 1,
+        'Tardia': 2,
+        'Ausente': 0
     }
 }
 
@@ -40,34 +46,37 @@ class AwareEnv(object):
     def __init__(self):
         self.actions = [
             0.0, 0.01, 0.02, 0.03, 0.04, 0.05,
-            -0.01, -0.02, -0.03, -0.04, -0.05, 0.0
+            -0.01, -0.02, -0.03, -0.04, -0.05
         ]
         self.model = BayesianModel([
-            ('Aware', 'AppDistraction'),
-            ('Aware', 'CarDirection'),
-            ('Aware', 'CarSound')
-            # ('Aware', 'AwareTime')
+            ('Consciente', 'DistracaoApp'),
+            ('Consciente', 'DirecaoCarro'),
+            ('Consciente', 'SomCarro'),
+            ('Consciente', 'Percepcao')
         ])
-        self.episodes = TEST.copy().drop('Aware', axis=1)
+        self.episodes = TEST.copy().drop('Consciente', axis=1)
 
     def reset(self):
         self.model = BayesianModel([
-            ('Aware', 'AppDistraction'),
-            ('Aware', 'CarDirection'),
-            ('Aware', 'CarSound')
-            # ('Aware', 'AwareTime')
+            ('Consciente', 'DistracaoApp'),
+            ('Consciente', 'DirecaoCarro'),
+            ('Consciente', 'SomCarro'),
+            ('Consciente', 'Percepcao')
         ])
-        # TODO: qual estimador usar? Por que? Isso deve estar no texto
-        self.model.fit(TRAIN, estimator=MaximumLikelihoodEstimator)
-        aware = [node for node in self.model.get_cpds() if node.variable == 'Aware'].pop()
-        self.state = np.round(aware.values, 2)
+        self.model.fit(TRAIN, estimator=BayesianEstimator)
+        aware = [node for node in self.model.get_cpds() if node.variable == 'Consciente'].pop()
+        self.state = [np.round(aware.values, 2)]
 
         self.cpds = self._tabular_cpds_to_dict(self.model)
+
+        for node in self.model.get_cpds():
+            print(node)
+        input()
 
         return self.state
 
     def render(self):
-        aware = [node for node in self.model.get_cpds() if node.variable == 'Aware'].pop()
+        aware = [node for node in self.model.get_cpds() if node.variable == 'Consciente'].pop()
         self.state = np.round(aware.values, 2)
 
         self.cpds = self._tabular_cpds_to_dict(self.model)
@@ -95,69 +104,87 @@ class AwareEnv(object):
         print('######## Ajustes ########')
         print(adjustment)
 
+        upper_bound = self.state[0] - adjustment
+        lower_bound = self.state[1] + adjustment
+
+        if adjustment != 0.0 and not (upper_bound > 1.0 or upper_bound < 0.0):
+
         print('######## Episódio atual ########')
         print(episode)
-        episode = {k: replacer[k][v] for k, v in episode.iteritems()}
 
-        print('######## Estado atual - Aware ########')
-        bp = BeliefPropagation(self.model)
-        print(bp.query(['Aware'], evidence=episode)['Aware'])
+        episode = {k: replacer[k][v] for k, v in episode.iteritems()}
 
         upper_bound = self.state[0] - adjustment
         lower_bound = self.state[1] + adjustment
-        if adjustment == 0.0 and not (upper_bound > 1.0 or upper_bound < 0.0):
+
+        print('######## Proximo estado - Consciente ########')
+        bp = BeliefPropagation(self.model)
+        print(bp.query(['Consciente'], evidence=episode)['Consciente'])
+
+        reward = float(input('Recompensa entre -1 e 1: '))
+
+            state_aware = [upper_bound, lower_bound]
             adjustments = {
-                'Aware': {
-                    'Aware': upper_bound,
-                    'Unaware': lower_bound
+                'Consciente': {
+                    'Consciente': upper_bound,
+                    'Inconsciente': lower_bound
                 }
             }
 
-            state_values = [upper_bound, lower_bound]
-
-            total_prob = self.total_probabilities(self.model, self.cpds, adjustments)
-
+            cpds = self._tabular_cpds_to_dict(self.model)
+            adjustments = self.adjust_probabilities(self.model, cpds, adjustments)
             for node in self.model.get_cpds():
-                node.values = self._get_cpd_values(total_prob[node.variable])
+                if node.variable != 'Consciente':
+                    new_cpds = self._get_cpd_values(adjustments[node.variable])
+                    node.values = node.values / new_cpds
+                    node.normalize()
         else:
-            state_values = self.state.copy()
+            state_aware = [self.state.copy()]
 
-        print('É válido: ', self.model.check_model())
-        print('######## Proximo estado - Aware ########')
-        bp = BeliefPropagation(self.model)
-        print(bp.query(['Aware'], evidence=episode)['Aware'])
-
-        reward = float(input('Recompensa entre -1 e 1: '))
-        next_state = np.round(state_values, 2)
+        next_state = []
+        next_state.append(np.round(state_aware, 2))
+        next_state.extend(list(episode.values()))
 
         return next_state, reward
 
-    def total_probabilities(self, model, tabular_cpds, changes=dict()):
-        total_probability = {}
+    # def adjust_probabilities(self, model, tabular_cpds, changes=dict()):
+    #     adjusted_probability = {}
+
+    #     leaves = model.get_leaves()
+    #     root = list(model.get_roots()).pop()
+
+    #     for node, state in tabular_cpds.items():
+    #         adjusted_probability[node] = {}
+
+    #         if node in leaves:
+    #             for param, values in state.items():
+    #                 prob = {}
+    #                 prob['Consciente'] = values[0] * changes[root]['Consciente'] + values[1] * changes[root]['Inconsciente']
+    #                 prob['Inconsciente'] = values[0] * changes[root]['Inconsciente'] + values[1] * changes[root]['Consciente']
+
+    #                 adjusted_probability[node][param] = prob
+    #         else:
+    #             adjusted_probability[node] = changes[node]
+
+    #     return adjusted_probability
+
+    def adjust_probabilities(self, model, changes, episode):
+        tabular_cpds = self._tabular_cpds_to_dict(model)
+        adjusted_probability = {}
 
         leaves = model.get_leaves()
         root = list(model.get_roots()).pop()
 
-        if changes.get(root):
-            root_values = changes.get(root)
-
+        print(tabular_cpds)
         for node, state in tabular_cpds.items():
-            total_probability[node] = {}
+            adjusted_probability[node] = {}
 
             if node in leaves:
                 for param, values in state.items():
-                    # fixed
-                    if changes.get(node) and changes.get(node).get(param):
-                        total_prob = changes[node][param]
-                    else:
-                        total_prob = {
-                            'Aware': values[0] * changes[root]['Aware'] + values[1] * changes[root]['Unaware'],
-                            'Unaware': values[0] * changes[root]['Unaware'] + values[1] * changes[root]['Aware']
-                        }
 
-                    total_probability[node][param] = total_prob
+                    adjusted_probability[node][param] = prob
             else:
-                total_probability[node] = changes[node]
+                adjusted_probability[node] = changes[node]
 
-        return total_probability
+        return adjusted_probability
 
