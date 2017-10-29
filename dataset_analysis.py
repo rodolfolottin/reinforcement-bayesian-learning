@@ -58,7 +58,6 @@ def get_mean_aware_value_by_direction_soundtype(dataset):
         for sound in ('Sim', 'Nao'):
             df_split = df[(df.DirecaoCarro == direction) & (df.SomCarro == sound)]
             mean_aware_by_type[direction][sound] = df_split.Percepcao.mean()
-            # max_aware_by_type[direction][sound] = df_split.loc[df_split['Percepcao'].mean()].Percepcao
 
     return mean_aware_by_type
 
@@ -73,20 +72,6 @@ def generate_line_plot(mean_aware):
                 sound_on.append(mean_value)
             else:
                 sound_off.append(mean_value)
-
-    # Data
-    # df=pd.DataFrame({'Sim': sound_on, 'Não': sound_off})
-    # df.cumsum()
-    # ax = df.plot(linewidth=2, marker='')
-
-    # ax.set_xticks(df.index)
-    # ax.set_xticklabels(['Direita', 'Esquerda', 'Trás', 'Frente'], rotation=0)
-    # # Histograma utilizado
-    # plt.legend(title='SomCarro')
-    # plt.title("Média de tempo para Consciente")
-    # plt.ylabel("Tempo")
-    # plt.savefig('pictures/media_tempo')
-    # plt.close()
 
 
 def generate_awaretime_bins(dataset):
@@ -113,12 +98,6 @@ def generate_awaretime_bins(dataset):
     df.rename(columns={'Percepcao_2': 'Percepcao'}, inplace=True)
 
     count = df.groupby(['Consciente', 'Percepcao']).size().unstack().plot(kind='bar', stacked=True)
-    # plt.title("Histograma Percepcao em 3 classes")
-    # plt.xlabel("Quantidade")
-    # plt.ylabel("Percepcao")
-
-    # plt.savefig('pictures/percepcao')
-    # plt.close()
 
 
 
@@ -139,67 +118,6 @@ def generate_histogram(dataset):
     plt.xticks(bins)
     plt.savefig('pictures/Figura Utilizada - sem retirar')
     plt.close()
-
-
-def generate_awaretime_histograms(dataset):
-    for ran in (4, 6, 8, 10, 12, 14, 16, 18, 20):
-        for function in (pd.qcut, pd.cut):
-            ser, bins = function(dataset.Percepcao, ran, labels=False, retbins=True)
-
-            plt.title("Histograma Percepcao {} Intervalos".format(str(ran)))
-            plt.xlabel("Tempo")
-            plt.ylabel("Tamanho")
-
-            plt.hist(dataset.Percepcao, bins=bins, edgecolor="k")
-            plt.xticks(bins)
-
-            if function == pd.cut:
-                text = 'Intervalos iguais'
-            else:
-                text = 'Frequenciais iguais'
-
-            plt.savefig('pictures/Figura {}-{}'.format(str(ran), text))
-            plt.close()
-
-
-def apply_k_means(dataset):
-    dataset_2 = dataset.copy()
-    dataset_2 = pd.get_dummies(dataset_2, columns=['Aware', 'AppDistraction', 'CarSound', 'CarDirection'])
-    columns = [
-        'Aware_Aware',
-        'Aware_Unaware',
-        'AppDistraction_Yes',
-        'AppDistraction_No',
-        'CarSound_Off',
-        'CarSound_On',
-        'CarDirection_Back',
-        'CarDirection_Front',
-        'CarDirection_Left',
-        'CarDirection_Right',
-        'AwareTime'
-    ]
-
-    dataset_2_std = stats.zscore(dataset_2[columns])
-
-    kmeans = KMeans(n_clusters=3, random_state=0).fit(dataset_2_std)
-    labels = kmeans.labels_
-
-    dataset_2['clusters'] = labels
-    columns.extend(['clusters'])
-
-    print(dataset_2[columns].groupby(['clusters']).mean())
-
-    sns.lmplot('AwareTime', 'Aware_Aware',
-           data=dataset_2,
-           fit_reg=False,
-           hue="clusters",  
-           scatter_kws={"marker": "D", 
-                        "s": 100})
-    plt.title('Clusters AwareTime vs Aware_Aware')
-    plt.xlabel('AwareTime')
-    plt.ylabel('Aware_Aware')
-    plt.show()
-
 
 
 replacer = {
@@ -227,16 +145,4 @@ replacer = {
         'Ausente': 0
     }
 }
-
-
-
-# count = pd.value_counts(df['Consciente'].values, sort=True)
-# count.plot.bar()
-# plt.title("Histograma Consciente")
-# plt.xlabel("Consciente")
-# plt.ylabel("Quantidade")
-# 
-# plt.xticks(rotation=0)
-# plt.savefig('pictures/contagem_consciente')
-# plt.close()
 

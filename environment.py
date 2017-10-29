@@ -3,7 +3,7 @@ import numpy as np
 from dataset_analysis import TRAIN, TEST
 from pgmpy.models import BayesianModel
 from pgmpy.inference import BeliefPropagation
-from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
+from pgmpy.estimators import BayesianEstimator
 from pgmpy.factors.discrete import DiscreteFactor, TabularCPD
 from random import random
 
@@ -31,6 +31,28 @@ replacer = {
         'Presente': 1,
         'Tardia': 2,
         'Ausente': 0
+    }
+}
+
+approximate = {
+    'DistracaoApp': {
+        'Nao': 0.00177777778,
+        'Sim': -0.00177777778
+    },
+    'DirecaoCarro': {
+        'Tras': -0.00111111111,
+        'Direita': 0.00166666667,
+        'Esquerda': 0.0022222222,
+        'Frente': -0.0088888889
+    },
+    'SomCarro': {
+        'Nao': 0.00155555556,
+        'Sim': -0.00155555556
+    },
+    'Percepcao': {
+        'Presente': -0.00622222222,
+        'Tardia': -0.00377777778,
+        'Ausente': 0.00997777778
     }
 }
 
@@ -71,7 +93,6 @@ class AwareEnv(object):
 
         for node in self.model.get_cpds():
             print(node)
-        input()
 
         return self.state
 
@@ -103,88 +124,80 @@ class AwareEnv(object):
     def step(self, adjustment, episode):
         print('######## Ajustes ########')
         print(adjustment)
-
-        upper_bound = self.state[0] - adjustment
-        lower_bound = self.state[1] + adjustment
-
-        if adjustment != 0.0 and not (upper_bound > 1.0 or upper_bound < 0.0):
-
         print('######## Episódio atual ########')
         print(episode)
 
-        episode = {k: replacer[k][v] for k, v in episode.iteritems()}
+        bp = BeliefPropagation(self.model)
+        replaced_episode = {k: replacer[k][v] for k, v in episode.iteritems()}
 
-        upper_bound = self.state[0] - adjustment
-        lower_bound = self.state[1] + adjustment
+        upper_bound = self.state[0] + adjustment
+        lower_bound = self.state[1] - adjustment
+
+        if not (upper_bound > 100 or lower_bound < 0):
+            state_aware = [upper_bound, lower_bound]
+
+            cpds = self._tabular_cpds_to_dict(self.model)
+            adjustments = self.fit_probabilities(cpds, adjustment)
+            for node in self.model.get_cpds():
+                if node.variable != 'Consciente':
+                    node.values = self._get_cpd_values(adjustments[node.variable])
+                    node.normalize()
+                else:
+                    node.values = np.array(state_aware)
+
+            for node in self.model.get_cpds():
+                print(node)
+        else:
+            state_aware = [self.state]
 
         print('######## Proximo estado - Consciente ########')
         bp = BeliefPropagation(self.model)
-        print(bp.query(['Consciente'], evidence=episode)['Consciente'])
+        print(bp.query(['Consciente'], evidence=replaced_episode)['Consciente'])
 
         reward = float(input('Recompensa entre -1 e 1: '))
-
-            state_aware = [upper_bound, lower_bound]
-            adjustments = {
-                'Consciente': {
-                    'Consciente': upper_bound,
-                    'Inconsciente': lower_bound
-                }
-            }
-
-            cpds = self._tabular_cpds_to_dict(self.model)
-            adjustments = self.adjust_probabilities(self.model, cpds, adjustments)
-            for node in self.model.get_cpds():
-                if node.variable != 'Consciente':
-                    new_cpds = self._get_cpd_values(adjustments[node.variable])
-                    node.values = node.values / new_cpds
-                    node.normalize()
-        else:
-            state_aware = [self.state.copy()]
-
         next_state = []
         next_state.append(np.round(state_aware, 2))
-        next_state.extend(list(episode.values()))
+        next_state.extend(list(replaced_episode.values()))
 
         return next_state, reward
 
-    # def adjust_probabilities(self, model, tabular_cpds, changes=dict()):
-    #     adjusted_probability = {}
+    def fit_probabilities(self, cpds, adjustment):
+        del cpds['Consciente']
 
-    #     leaves = model.get_leaves()
-    #     root = list(model.get_roots()).pop()
+        adjusted_probabilities = {}
+        position = int(adjustment < 0)
 
-    #     for node, state in tabular_cpds.items():
-    #         adjusted_probability[node] = {}
+        for state, param in cpds.items():
+            params = list(param.keys())
+            param_values = list(param.values())
 
-    #         if node in leaves:
-    #             for param, values in state.items():
-    #                 prob = {}
-    #                 prob['Consciente'] = values[0] * changes[root]['Consciente'] + values[1] * changes[root]['Inconsciente']
-    #                 prob['Inconsciente'] = values[0] * changes[root]['Inconsciente'] + values[1] * changes[root]['Consciente']
+            new_param_values = []
+            npt = np.transpose(param_values)
 
-    #                 adjusted_probability[node][param] = prob
-    #         else:
-    #             adjusted_probability[node] = changes[node]
+            for cpd_list, param in zip(npt, params):
+                fitting = approximate[state][param] * (adjustment * 100)
 
-    #     return adjusted_probability
+                values = []
+                for cpd in cpd_list:
+                    fit = cpd + fitting
 
-    def adjust_probabilities(self, model, changes, episode):
-        tabular_cpds = self._tabular_cpds_to_dict(model)
-        adjusted_probability = {}
+                    if fit < 0:
+                        fit = 0
+                    elif fit > 1:
+                        fit = 1
 
-        leaves = model.get_leaves()
-        root = list(model.get_roots()).pop()
+                    values.append(fit)
 
-        print(tabular_cpds)
-        for node, state in tabular_cpds.items():
-            adjusted_probability[node] = {}
+                new_param_values.append(self.normalize(values))
 
-            if node in leaves:
-                for param, values in state.items():
+            npt = np.transpose(new_param_values)
+            adjusted_probabilities[state] = {}
 
-                    adjusted_probability[node][param] = prob
-            else:
-                adjusted_probability[node] = changes[node]
+            for i, param in enumerate(params):
+                adjusted_probabilities[state][param] = np.array(npt[i])
 
-        return adjusted_probability
+        return adjusted_probabilities
 
+    def normalize(self, lst):
+        s = sum(lst)
+        return list(map(lambda x: float(x)/s, lst))
