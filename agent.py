@@ -2,9 +2,8 @@ import numpy as np
 import random
 import json
 import os
-from environment import AwareEnv, TEST
+from environment import AwareEnv
 from collections import defaultdict
-from pgmpy.inference import VariableElimination, BeliefPropagation
 
 
 class Agent(object):
@@ -15,22 +14,16 @@ class Agent(object):
         self.epsilon = 0.9
         self.q_table = defaultdict(lambda: [0.0] * len(actions), q_table)
 
-    # get action for the state according to the q function table
-    # agent pick action of epsilon-greedy policy
     def get_action(self, state):
         if np.random.rand() > self.epsilon:
-            # take random action
             action = np.random.choice(self.actions)
         else:
-            # take action according to the q function table
             state_action = self.q_table[state]
             action = self.arg_max(state_action)
         return action
 
-    # update q function with sample <s, a, r, s'>
     def learn(self, state, action, reward, next_state):
         q_1 = self.q_table[state][action]
-        # using Bellman Optimality Equation to update q function
         q_2 = reward + self.discount_factor * max(self.q_table[next_state])
         self.q_table[state][action] += self.learning_rate * (q_2 - q_1)
 

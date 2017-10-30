@@ -4,8 +4,6 @@ from dataset_analysis import TRAIN, TEST
 from pgmpy.models import BayesianModel
 from pgmpy.inference import BeliefPropagation
 from pgmpy.estimators import BayesianEstimator
-from pgmpy.factors.discrete import DiscreteFactor, TabularCPD
-from random import random
 
 
 replacer = {
@@ -201,3 +199,4 @@ class AwareEnv(object):
     def normalize(self, lst):
         s = sum(lst)
         return list(map(lambda x: float(x)/s, lst))
+
