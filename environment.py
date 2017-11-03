@@ -131,7 +131,7 @@ class AwareEnv(object):
         upper_bound = self.state[0] + adjustment
         lower_bound = self.state[1] - adjustment
 
-        if not (upper_bound > 100 or lower_bound < 0):
+        if not (upper_bound > 1 or upper_bound < 0):
             state_aware = [upper_bound, lower_bound]
 
             cpds = self._tabular_cpds_to_dict(self.model)
@@ -148,7 +148,7 @@ class AwareEnv(object):
         else:
             state_aware = [self.state]
 
-        print('######## Proximo estado - Consciente ########')
+        print('######## Consciente ########')
         bp = BeliefPropagation(self.model)
         print(bp.query(['Consciente'], evidence=replaced_episode)['Consciente'])
 
